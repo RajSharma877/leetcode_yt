@@ -13,7 +13,9 @@ import {
   query,
 } from "firebase/firestore";
 import { auth, firestore } from "@/firebase/firebase";
+import { DBProblem } from "@/utils/types/problem";
 import { useAuthState } from "react-firebase-hooks/auth";
+
 type ProblemsTableProps = {
   setLoadingProblems: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -25,10 +27,9 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({
     isOpen: false,
     videoId: "",
   });
-
   const problems = useGetProblems(setLoadingProblems);
   const solvedProblems = useGetSolvedProblems();
-  console.log("solved problems", solvedProblems);
+  console.log("solvedProblems", solvedProblems);
   const closeModal = () => {
     setYoutubePlayer({ isOpen: false, videoId: "" });
   };
@@ -41,11 +42,12 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({
 
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
+
   return (
     <>
       <tbody className="text-white">
         {problems.map((problem, idx) => {
-          const difficultyColor =
+          const difficulyColor =
             problem.difficulty === "Easy"
               ? "text-dark-green-s"
               : problem.difficulty === "Medium"
@@ -79,11 +81,11 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({
                   </Link>
                 )}
               </td>
-              <td className={`px-6 py-4 ${difficultyColor}`}>
+              <td className={`px-6 py-4 ${difficulyColor}`}>
                 {problem.difficulty}
               </td>
-              <td className={`px-6 py-4 `}>{problem.category}</td>
-              <td className={`px-6 py-4 `}>
+              <td className={"px-6 py-4"}>{problem.category}</td>
+              <td className={"px-6 py-4"}>
                 {problem.videoId ? (
                   <AiFillYoutube
                     fontSize={"28"}
@@ -96,7 +98,7 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({
                     }
                   />
                 ) : (
-                  <p className="text-gray-400">Coming Soon</p>
+                  <p className="text-gray-400">Coming soon</p>
                 )}
               </td>
             </tr>
@@ -104,7 +106,7 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({
         })}
       </tbody>
       {youtubePlayer.isOpen && (
-        <tfoot className="fixed top-0 left-0 h-screen w-screen flex items-center justify-center ">
+        <tfoot className="fixed top-0 left-0 h-screen w-screen flex items-center justify-center">
           <div
             className="bg-black z-10 opacity-70 top-0 left-0 w-screen h-screen absolute"
             onClick={closeModal}
@@ -135,20 +137,20 @@ export default ProblemsTable;
 function useGetProblems(
   setLoadingProblems: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  const [problems, setProblems] = useState([]);
+  const [problems, setProblems] = useState<DBProblem[]>([]);
 
   useEffect(() => {
     const getProblems = async () => {
-      //fetching data logic
+      // fetching data logic
       setLoadingProblems(true);
       const q = query(
         collection(firestore, "problems"),
         orderBy("order", "asc")
       );
       const querySnapshot = await getDocs(q);
-      const tmp = [];
+      const tmp: DBProblem[] = [];
       querySnapshot.forEach((doc) => {
-        tmp.push({ id: doc.id, ...doc.data() });
+        tmp.push({ id: doc.id, ...doc.data() } as DBProblem);
       });
       setProblems(tmp);
       setLoadingProblems(false);
@@ -162,6 +164,7 @@ function useGetProblems(
 function useGetSolvedProblems() {
   const [solvedProblems, setSolvedProblems] = useState<string[]>([]);
   const [user] = useAuthState(auth);
+
   useEffect(() => {
     const getSolvedProblems = async () => {
       const userRef = doc(firestore, "users", user!.uid);
@@ -171,8 +174,10 @@ function useGetSolvedProblems() {
         setSolvedProblems(userDoc.data().solvedProblems);
       }
     };
+
     if (user) getSolvedProblems();
     if (!user) setSolvedProblems([]);
   }, [user]);
+
   return solvedProblems;
 }
