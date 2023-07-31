@@ -10,7 +10,7 @@ import {
   runTransaction,
   updateDoc,
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import {
   AiFillLike,
@@ -31,9 +31,9 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
   problem,
   _solved,
 }) => {
+  const [user] = useAuthState(auth);
   const { currentProblem, loading, problemDifficultyClass, setCurrentProblem } =
     useGetCurrentProblem(problem.id);
-  const [user] = useAuthState(auth);
   const { liked, disliked, solved, setData, starred } =
     useGetUsersDataOnProblem(problem.id);
   const [updating, setUpdating] = useState(false);
@@ -59,9 +59,10 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
     await runTransaction(firestore, async (transaction) => {
       const { problemDoc, userDoc, problemRef, userRef } =
         await returnUserDataAndProblemData(transaction);
+
       if (userDoc.exists() && problemDoc.exists()) {
         if (liked) {
-          //remove problem id from likedProblems on user document, decrement likes on problem document
+          // remove problem id from likedProblems on user document, decrement likes on problem document
           transaction.update(userRef, {
             likedProblems: userDoc
               .data()
@@ -70,6 +71,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
           transaction.update(problemRef, {
             likes: problemDoc.data().likes - 1,
           });
+
           setCurrentProblem((prev) =>
             prev ? { ...prev, likes: prev.likes - 1 } : null
           );
@@ -85,13 +87,10 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
             likes: problemDoc.data().likes + 1,
             dislikes: problemDoc.data().dislikes - 1,
           });
+
           setCurrentProblem((prev) =>
             prev
-              ? {
-                  ...prev,
-                  likes: prev.likes + 1,
-                  dislikes: prev.dislikes - 1,
-                }
+              ? { ...prev, likes: prev.likes + 1, dislikes: prev.dislikes - 1 }
               : null
           );
           setData((prev) => ({ ...prev, liked: true, disliked: false }));
@@ -126,6 +125,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
       const { problemDoc, userDoc, problemRef, userRef } =
         await returnUserDataAndProblemData(transaction);
       if (userDoc.exists() && problemDoc.exists()) {
+        // already disliked, already liked, not disliked or liked
         if (disliked) {
           transaction.update(userRef, {
             dislikedProblems: userDoc
@@ -183,6 +183,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
     }
     if (updating) return;
     setUpdating(true);
+
     if (!starred) {
       const userRef = doc(firestore, "users", user.uid);
       await updateDoc(userRef, {
@@ -199,11 +200,16 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
 
     setUpdating(false);
   };
+
   return (
     <div className="bg-dark-layer-1">
       {/* TAB */}
       <div className="flex h-11 w-full items-center pt-2 bg-dark-layer-2 text-white overflow-x-hidden">
-        <div className="bg-dark-layer-1 rounded-t-[5px] px-5 py-[10px] text-xs cursor-pointer">
+        <div
+          className={
+            "bg-dark-layer-1 rounded-t-[5px] px-5 py-[10px] text-xs cursor-pointer"
+          }
+        >
           Description
         </div>
       </div>
@@ -233,14 +239,14 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
                   className="flex items-center cursor-pointer hover:bg-dark-fill-3 space-x-1 rounded p-[3px]  ml-4 text-lg transition-colors duration-200 text-dark-gray-6"
                   onClick={handleLike}
                 >
-                  {liked && !updating ? (
+                  {liked && !updating && (
                     <AiFillLike className="text-dark-blue-s" />
-                  ) : (
-                    <AiFillLike />
                   )}
+                  {!liked && !updating && <AiFillLike />}
                   {updating && (
                     <AiOutlineLoading3Quarters className="animate-spin" />
                   )}
+
                   <span className="text-xs">{currentProblem.likes}</span>
                 </div>
                 <div
@@ -254,6 +260,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
                   {updating && (
                     <AiOutlineLoading3Quarters className="animate-spin" />
                   )}
+
                   <span className="text-xs">{currentProblem.dislikes}</span>
                 </div>
                 <div
@@ -280,6 +287,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
                 <CircleSkeleton />
               </div>
             )}
+
             {/* Problem Statement(paragraphs) */}
             <div className="text-white text-sm">
               <div
@@ -300,8 +308,10 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
                   <div className="example-card">
                     <pre>
                       <strong className="text-white">Input: </strong>{" "}
-                      {example.inputText} <br />
-                      <strong>Output:</strong> {example.outputText} <br />
+                      {example.inputText}
+                      <br />
+                      <strong>Output:</strong>
+                      {example.outputText} <br />
                       {example.explanation && (
                         <>
                           <strong>Explanation:</strong> {example.explanation}
@@ -314,7 +324,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
             </div>
 
             {/* Constraints */}
-            <div className="my-8 pb-2">
+            <div className="my-8 pb-4">
               <div className="text-white text-sm font-medium">Constraints:</div>
               <ul className="text-white ml-5 list-disc ">
                 <div
@@ -328,7 +338,6 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
     </div>
   );
 };
-
 export default ProblemDescription;
 
 function useGetCurrentProblem(problemId: string) {
@@ -338,39 +347,29 @@ function useGetCurrentProblem(problemId: string) {
     useState<string>("");
 
   useEffect(() => {
-    //get problem from DB
+    // Get problem from DB
     const getCurrentProblem = async () => {
       setLoading(true);
       const docRef = doc(firestore, "problems", problemId);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
-        const problem = docSnap.data() as DBProblem;
-        setCurrentProblem({ id: docSnap.id, ...problem });
-        //easy, medium and hard
-        setProblemDifficultyClass(() => {
-          if (problem.difficulty === "Easy") {
-            return "bg-olive text-olive";
-          } else if (problem.difficulty === "Medium") {
-            return "bg-dark-yellow text-dark-yellow";
-          } else {
-            return "bg-dark-pink text-dark-pink";
-          }
-        });
+        const problem = docSnap.data();
+        setCurrentProblem({ id: docSnap.id, ...problem } as DBProblem);
+        // easy, medium, hard
+        setProblemDifficultyClass(
+          problem.difficulty === "Easy"
+            ? "bg-olive text-olive"
+            : problem.difficulty === "Medium"
+            ? "bg-dark-yellow text-dark-yellow"
+            : " bg-dark-pink text-dark-pink"
+        );
       }
-
       setLoading(false);
     };
-
     getCurrentProblem();
   }, [problemId]);
 
-  return {
-    currentProblem,
-    loading,
-    problemDifficultyClass,
-    setCurrentProblem,
-  };
+  return { currentProblem, loading, problemDifficultyClass, setCurrentProblem };
 }
 
 function useGetUsersDataOnProblem(problemId: string) {
@@ -384,26 +383,28 @@ function useGetUsersDataOnProblem(problemId: string) {
 
   useEffect(() => {
     const getUsersDataOnProblem = async () => {
-      if (!user) {
-        return;
-      }
-
-      const userRef = doc(firestore, "users", user.uid);
+      const userRef = doc(firestore, "users", user!.uid);
       const userSnap = await getDoc(userRef);
-
       if (userSnap.exists()) {
-        const userData = userSnap.data();
-
-        setData((prevData) => ({
-          liked: userData.likedProblems.includes(problemId),
-          disliked: userData.dislikedProblems.includes(problemId),
-          starred: userData.starredProblems.includes(problemId),
-          solved: userData.solvedProblems.includes(problemId),
-        }));
+        const data = userSnap.data();
+        const {
+          solvedProblems,
+          likedProblems,
+          dislikedProblems,
+          starredProblems,
+        } = data;
+        setData({
+          liked: likedProblems.includes(problemId), // likedProblems["two-sum","jump-game"]
+          disliked: dislikedProblems.includes(problemId),
+          starred: starredProblems.includes(problemId),
+          solved: solvedProblems.includes(problemId),
+        });
       }
     };
 
-    getUsersDataOnProblem();
+    if (user) getUsersDataOnProblem();
+    return () =>
+      setData({ liked: false, disliked: false, starred: false, solved: false });
   }, [problemId, user]);
 
   return { ...data, setData };
